@@ -1,0 +1,3 @@
+Built a real-time fraud detection pipeline ingesting 1-2K+ transactions per second (TPS) via a custom Ingestor implementation and Kafka for high-throughput streaming. 
+Designed a multi-database architecture using MariaDB (user & transaction data), Memgraph (graph-based fraud patterns: mules, rings, layering, laundering), and Qdrant (vector embeddings for RAG).  
+Trained an XGBoost model on 100K+ synthetic transactions, generating fraud risk scores (0-100) with 90%+ AUC.Implemented an Agentic AI system using LangChain + RAG, reducing false positives by ~30% and delivering real-time explainable risk scoring via a chatbot UI deployed on Google Cloud Platform (GCP).
