@@ -1,0 +1,96 @@
+services:
+  generator:
+    image: ubuntu:22.04
+    container_name: generator
+    ports:
+      - "8041:8041"
+    volumes:
+      - ./data-generator:/app/data-generator
+    working_dir: /app
+    command: /app/data-generator --serve :8041 --customers 25000 --accounts 100000 --tps 4000 --fraud-mode "ml-training"
+    networks:
+      - fraud-network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka
+    ports:
+      - "9092:9092"
+    environment:
+      CLUSTER_ID: "E35cfXXXTFeLFkVLap27tw"
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://192.168.8.114:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    networks:
+      - fraud-network
+
+  memgraph:
+    image: memgraph/memgraph-mage:latest
+    container_name: memgraph
+    ports:
+      - "7687:7687"
+      - "4444:4444"
+    environment:
+      - MEMGRAPH_PROPERTIES=--query-modules-directory=/usr/lib/memgraph/query_modules
+    volumes:
+      - memgraph-data:/var/lib/memgraph
+    networks:
+      - fraud-network
+
+  memgraph-lab:
+    image: memgraph/lab:latest
+    container_name: memgraph-lab
+    ports:
+      - "3000:3000"
+    environment:
+      MEMGRAPH_HOST: memgraph
+      MEMGRAPH_PORT: 7687
+    depends_on:
+      - memgraph
+    networks:
+      - fraud-network
+
+  python-app:
+    build: .
+    container_name: python-app
+    volumes:
+      - .:/app
+    depends_on:
+      - kafka
+      - memgraph
+      - generator
+    command: python transaction_producer_new.py
+    networks:
+      - fraud-network
+
+  python-consumer:
+    build: .
+    container_name: python-consumer
+    volumes:
+      - .:/app
+    depends_on:
+      - kafka
+      - memgraph
+      - python-app
+    command: python transaction_consumer_new.py
+    networks:
+      - fraud-network
+
+volumes:
+  kafka-data:
+  memgraph-data:
+
+networks:
+  fraud-network:
+    driver: bridge
